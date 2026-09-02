@@ -1,6 +1,26 @@
 from pydantic import BaseModel
 from typing import List, Optional
+from typing import List, Dict, Any
 
+class SegmentDistributionItem(BaseModel):
+    segment: str
+    count: int
+    percentage: float
+
+class AutomatedInsightItem(BaseModel):
+    type: str
+    category: str
+    title: str
+    description: str
+
+class OverviewResponse(BaseModel):
+    total_customers: int
+    total_revenue: float
+    total_transactions: int
+    average_order_value: float
+    segment_distribution: List[SegmentDistributionItem]
+    automated_insights: List[AutomatedInsightItem]
+    
 class CustomerProfile(BaseModel):
     customer_id: int
     recency: float

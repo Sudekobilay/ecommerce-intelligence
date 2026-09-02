@@ -87,3 +87,79 @@ class AnalyticsService:
         df_matched = pd.DataFrame(matched_rules).drop_duplicates(subset=["product"])
         df_matched = df_matched.sort_values(by=["lift", "confidence"], ascending=[False, False])
         return df_matched.head(top_n).to_dict(orient="records")
+
+    @staticmethod
+    def get_macro_overview():
+        """
+        Şirketin genel durumunu, makro KPI'ları, segment yüzdelerini
+        ve kural tabanlı otomatik iş içgörülerini hesaplar.
+        """
+        total_cust = len(customers_df)
+        total_rev = float(round(customers_df["monetary"].sum(), 2))
+        total_trans = int(customers_df["frequency"].sum())
+        aov = float(round(total_rev / total_trans, 2)) if total_trans > 0 else 0.0
+
+        # Segment Dağılımı
+        segment_counts = customers_df["segment"].value_counts()
+        segment_dist = []
+        for seg_name, count in segment_counts.items():
+            segment_dist.append({
+                "segment": str(seg_name),
+                "count": int(count),
+                "percentage": round((count / total_cust) * 100, 1)
+            })
+
+        # Otomatik Kural Tabanlı İş İçgörüleri (Automated Business Insights)
+        insights = []
+
+        # 1. Churn / Kayıp Riski Analizi
+        at_risk = 0
+        for key in ["AT_RISK", "At-Risk", "at_risk", "Cant Loose Them", "About to Sleep"]:
+            at_risk += segment_counts.get(key, 0)
+        
+        if at_risk > 0:
+            risk_pct = round((at_risk / total_cust) * 100, 1)
+            insights.append({
+                "type": "warning",
+                "category": "Müşteri Kaybı Riski (Churn)",
+                "title": f"Müşteri Tabanının %{risk_pct}'i Risk Altında",
+                "description": f"Toplam {at_risk} müşteri kritik eşikte. Bu kitleye özel geri kazanım kampanyası ve sınırlı süreli teklifler sunulmalıdır."
+            })
+
+        # 2. VIP / Champions Analizi
+        champs = 0
+        for key in ["CHAMPIONS", "Champions", "champions", "Loyal Customers"]:
+            champs += segment_counts.get(key, 0)
+
+        if champs > 0:
+            champ_pct = round((champs / total_cust) * 100, 1)
+            insights.append({
+                "type": "success",
+                "category": "Sadakat & VIP",
+                "title": f"Ciro Lokomotifi VIP Kitle (%{champ_pct})",
+                "description": f"{champs} sadık müşteri şirket cirosunun omurgasını oluşturuyor. Bu gruba erken erişim ve özel sadakat avantajları tanımlanmalıdır."
+            })
+
+        # 3. Apriori Çapraz Satış İçgörüsü
+        if not rules_df.empty:
+            top_rule = rules_df.sort_values(by="lift", ascending=False).iloc[0]
+            ant = top_rule["antecedents_list"][0] if top_rule["antecedents_list"] else "Ürün"
+            con = top_rule["consequents_list"][0] if top_rule["consequents_list"] else "Tamamlayıcı Ürün"
+            lift_val = round(float(top_rule["lift"]), 1)
+            conf_val = round(float(top_rule["confidence"]) * 100, 1)
+
+            insights.append({
+                "type": "info",
+                "category": "Sepet Çapraz Satış Fırsatı",
+                "title": f"Güçlü Sepet Birlikteliği ({lift_val}x Lift)",
+                "description": f"'{ant}' alan müşterilerin %{conf_val}'i '{con}' ürününü de alıyor. Bu iki ürün için ikili paket indirimi tanımlanabilir."
+            })
+
+        return {
+            "total_customers": total_cust,
+            "total_revenue": total_rev,
+            "total_transactions": total_trans,
+            "average_order_value": aov,
+            "segment_distribution": segment_dist,
+            "automated_insights": insights
+        }

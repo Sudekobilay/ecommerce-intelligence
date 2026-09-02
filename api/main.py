@@ -6,9 +6,13 @@ from api.schemas import (
     CustomerProfile,
     SegmentSummaryItem,
     RecommendationRequest,
-    RecommendationResponse
+    RecommendationResponse,
+    OverviewResponse
 )
 from api.services import AnalyticsService
+
+# Global bellek içi önbellek
+OVERVIEW_CACHE = None
 
 app = FastAPI(
     title="E-Commerce Intelligence API",
@@ -25,9 +29,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.on_event("startup")
+def startup_event():
+    global OVERVIEW_CACHE
+    try:
+        OVERVIEW_CACHE = AnalyticsService.get_macro_overview()
+        print("INFO: Makro BI agregasyonları başarıyla önbelleğe alındı.")
+    except Exception as e:
+        print(f"WARN: BI önbelleği oluşturulamadı: {e}")
+
 @app.get("/")
 def health_check():
     return {"status": "active", "service": "E-Commerce Intelligence API"}
+
+@app.get("/api/v1/analytics/overview", response_model=OverviewResponse)
+def get_macro_overview():
+    """
+    Şirketin genel sağlık durumunu, makro KPI'ları, segment yüzdelerini
+    ve kural tabanlı otomatik iş içgörülerini döner.
+    """
+    global OVERVIEW_CACHE
+    if OVERVIEW_CACHE is None:
+        try:
+            OVERVIEW_CACHE = AnalyticsService.get_macro_overview()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    return OVERVIEW_CACHE
 
 @app.get("/api/v1/customer/{customer_id}", response_model=CustomerProfile)
 def get_customer_profile(customer_id: int):

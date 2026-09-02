@@ -4,7 +4,8 @@ import '../models/intelligence_models.dart';
 
 class ApiService {
   // Windows/Web için 127.0.0.1, Android Emülatör için 10.0.2.2 kullan(termınalde ipconfig yazdık ve wıreless lan adapter baglantısı pıv4 adresını aldık(bıglısayar ve telefon aynı wıfıye baglı olmalıdır))
-  static const String baseUrl = 'http://127.0.0.1:8000';
+  static const String baseUrl =
+      'https://ecommerce-intelligence-8juv.onrender.com';
 
   static Future<CustomerProfile?> fetchCustomerProfile(int customerId) async {
     final url = Uri.parse('$baseUrl/api/v1/customer/$customerId');

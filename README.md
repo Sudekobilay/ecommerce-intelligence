@@ -13,7 +13,7 @@ An enterprise-grade, full-stack intelligence system combining unsupervised machi
 ## 🔗 Live Deployments & Demos
 
 * 🌐 **Live API Documentation (Swagger UI):** [https://ecommerce-intelligence.onrender.com/docs](https://ecommerce-intelligence.onrender.com/docs)
-* 📱 **Android Client (Pre-release APK):** [Download Latest APK (v0.8.0-beta)](https://github.com/KULLANICI_ADIN/ecommerce-intelligence/releases)
+* 📱 **Android Client (Pre-release APK):** [Download Latest APK (v0.8.0-beta)](https://github.com/Sudekobilay/ecommerce-intelligence/releases)
 
 ---
 
@@ -37,10 +37,10 @@ The project follows a decoupled, three-tier architecture ensuring scalability, c
           │
           ▼ Cloud PaaS Deployment (Render / TLS/HTTPS)
 [ Mobile Presentation Layer: Flutter & Dart ]
-   ├── Executive Metrics Overview
-   ├── Interactive Customer Search & Profile
-   └── Smart Basket Recommendation Drawer
-   📱 Mobile Dashboard PreviewCustomer RFM & SegmentationMarket Basket Recommendations🛠️ Key Capabilities1. Machine Learning & Behavioral AnalyticsRFM Feature Matrix: Computes Recency, Frequency, and Monetary scores across transactional e-commerce histories.K-Means Clustering: Segments customers into distinct behavioral personas (Champions, Loyal Customers, At-Risk, Hibernating) using normalized logarithmic transformations.Association Rule Mining: Generates dynamic product association pairs based on support, confidence, and lift thresholds using the Apriori algorithm.2. High-Performance Cloud APIBuilt with FastAPI leveraging asynchronous request handling.Deployed on Render cloud infrastructure with containerized buildpacks and automated SSL/TLS termination.Auto-generated interactive documentation via Swagger / OpenAPI 3.0.3. Cross-Platform Mobile DashboardDeveloped with Flutter for responsive performance on Android, iOS, and Web.Centralized network abstractions with fault-tolerant error boundaries and cold-start feedback.🚀 Local Development Setup1. Clone the RepositoryBashgit clone [https://github.com/Sudekobilay/ecommerce-intelligence.git](https://github.com/Sudekobilay/ecommerce-intelligence.git)
+
+
+
+📱 Mobile Dashboard PreviewCustomer RFM & SegmentationMarket Basket Recommendations🛠️ Key Capabilities1. Machine Learning & Behavioral AnalyticsRFM Feature Matrix: Computes Recency, Frequency, and Monetary scores across transactional e-commerce histories.K-Means Clustering: Segments customers into distinct behavioral personas (Champions, Loyal Customers, At-Risk, Hibernating) using normalized logarithmic transformations.Association Rule Mining: Generates dynamic product association pairs based on support, confidence, and lift thresholds using the Apriori algorithm.2. High-Performance Cloud APIBuilt with FastAPI leveraging asynchronous request handling.Deployed on Render cloud infrastructure with containerized buildpacks and automated SSL/TLS termination.Auto-generated interactive documentation via Swagger / OpenAPI 3.0.3. Cross-Platform Mobile DashboardDeveloped with Flutter for responsive performance on Android, iOS, and Web.Centralized network abstractions with fault-tolerant error boundaries and cold-start feedback.🚀 Local Development Setup1. Clone the RepositoryBashgit clone https://github.com/Sudekobilay/ecommerce-intelligence.git
 cd ecommerce-intelligence
 2. Backend Environment (Optional for local testing)Bashpython -m venv venv
 # On Windows:
@@ -54,3 +54,6 @@ flutter pub get
 # Run on Chrome or connected device:
 flutter run -d chrome
 📄 LicenseThis project is open-source and licensed under the MIT License.
+   ├── Executive Metrics Overview
+   ├── Interactive Customer Search & Profile
+   └── Smart Basket Recommendation Drawer

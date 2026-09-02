@@ -2,6 +2,7 @@ import pandas as pd
 import ast
 import os
 from scipy import stats
+import numpy as np
 
 # Segment aksiyon matrisi
 ACTION_MATRIX = {
@@ -59,10 +60,9 @@ def build_deep_customer_profile(customer_row: pd.Series, all_df: pd.DataFrame) -
     # 1. Yüzdelik Dilimler (Percentile Rank)
     monetary_pct = float(round(stats.percentileofscore(all_df['monetary'], customer_row['monetary']), 1))
     frequency_pct = float(round(stats.percentileofscore(all_df['frequency'], customer_row['frequency']), 1))
-    # Recency ters orantılı (az gün = daha taze/yüksek yüzdelik)
     recency_pct = float(round(100.0 - stats.percentileofscore(all_df['recency'], customer_row['recency']), 1))
 
-    # 2. RFM Skorları (CSV'de R, F, M veya r_score, f_score şeklinde olabilir)
+    # 2. RFM Skorları
     r_val = int(customer_row.get('r_score', customer_row.get('R', 3)))
     f_val = int(customer_row.get('f_score', customer_row.get('F', 3)))
     m_val = int(customer_row.get('m_score', customer_row.get('M', 3)))
@@ -85,8 +85,6 @@ def build_deep_customer_profile(customer_row: pd.Series, all_df: pd.DataFrame) -
     }
 
     action_plan = resolve_action_plan(str(customer_row.get('segment', '')))
-
-    # rf_score / rfm_score uyumluluğu
     rf_code = str(customer_row.get('rf_score', customer_row.get('RF_SCORE', customer_row.get('rfm_score', f"{r_val}{f_val}{m_val}"))))
 
     return {
@@ -97,6 +95,7 @@ def build_deep_customer_profile(customer_row: pd.Series, all_df: pd.DataFrame) -
         "r_score": r_val,
         "f_score": f_val,
         "m_score": m_val,
+        "rf_score": rf_code,
         "rfm_score": rf_code,
         "segment": str(customer_row.get('segment', 'Unknown')),
         "kmeans_cluster": int(customer_row.get('kmeans_cluster', 0)),
@@ -129,12 +128,94 @@ rules_df['consequents_list'] = rules_df['consequents'].apply(_parse_frozenset)
 class AnalyticsService:
 
     @staticmethod
+    def calculate_churn_probability(recency: float, frequency: float) -> float:
+        """
+        Olasılık tabanlı Churn Motoru:
+        Müşterinin sipariş sıklığı ile son ziyaret süresi arasındaki gerilimi ölçer.
+        """
+        interpurchase_cycle = max(30.0, 365.0 / max(frequency, 1.0))
+        inactivity_ratio = recency / interpurchase_cycle
+
+        # Sigmoid fonksiyonu
+        prob = 1.0 / (1.0 + np.exp(-1.2 * (inactivity_ratio - 1.35)))
+        return float(round(prob * 100.0, 1))
+
+    @staticmethod
     def get_customer(customer_id: int):
         if customer_id not in customers_df.index:
             return None
         row = customers_df.loc[customer_id].copy()
         row['customer_id'] = customer_id
         return build_deep_customer_profile(row, customers_df)
+
+    @staticmethod
+    def simulate_customer_scenario(customer_id: int, days_to_next_order: int, additional_orders: int, additional_spend: float):
+        """
+        Gün 13: What-If Gelecek Senaryoları Simülasyon Motoru
+        """
+        if customer_id not in customers_df.index:
+            return None
+        
+        row = customers_df.loc[customer_id]
+        cur_recency = float(row['recency'])
+        cur_freq = float(row['frequency'])
+        cur_monetary = float(row['monetary'])
+
+        # Mevcut int RFM skorları
+        cur_r = int(row.get('r_score', row.get('R', 3)))
+        cur_f = int(row.get('f_score', row.get('F', 3)))
+        cur_m = int(row.get('m_score', row.get('M', 3)))
+        cur_health = int(((cur_r / 5.0) * 35) + ((cur_f / 5.0) * 35) + ((cur_m / 5.0) * 30))
+        cur_churn = AnalyticsService.calculate_churn_probability(cur_recency, cur_freq)
+
+        # Simüle edilen yeni değerler
+        sim_recency = max(1.0, float(days_to_next_order))
+        sim_freq = cur_freq + float(additional_orders)
+        sim_monetary = cur_monetary + float(additional_spend)
+
+        # Percentile hesaplamaları
+        sim_r_pct = 100.0 - stats.percentileofscore(customers_df['recency'], sim_recency)
+        sim_f_pct = stats.percentileofscore(customers_df['frequency'], sim_freq)
+        sim_m_pct = stats.percentileofscore(customers_df['monetary'], sim_monetary)
+
+        # 1-5 aralığına normalize etme
+        sim_r_score = min(5, max(1, int(np.ceil(sim_r_pct / 20.0))))
+        sim_f_score = min(5, max(1, int(np.ceil(sim_f_pct / 20.0))))
+        sim_m_score = min(5, max(1, int(np.ceil(sim_m_pct / 20.0))))
+
+        sim_health = int(((sim_r_score / 5.0) * 35) + ((sim_f_score / 5.0) * 35) + ((sim_m_score / 5.0) * 30))
+        sim_churn = AnalyticsService.calculate_churn_probability(sim_recency, sim_freq)
+
+        delta_health = sim_health - cur_health
+        delta_churn = round(sim_churn - cur_churn, 1)
+
+        if sim_churn < 40.0:
+            assessment = "Düşük Risk / Yüksek Bağlılık"
+        elif sim_churn < 70.0:
+            assessment = "Orta Risk / Takip Edilmeli"
+        else:
+            assessment = "Yüksek Churn Riski"
+
+        if delta_churn < 0:
+            summary = f"Bu kampanya ile müşterinin kayıp riski %{abs(delta_churn)} azalıyor ve sağlık skoru {delta_health:+} puan değişiyor."
+        else:
+            summary = f"Sipariş aralığının açılması kayıp riskini %{delta_churn} artırıyor."
+
+        return {
+            "customer_id": customer_id,
+            "health_score": {
+                "current": float(cur_health),
+                "simulated": float(sim_health),
+                "delta": float(delta_health)
+            },
+            "churn_probability_pct": {
+                "current": cur_churn,
+                "simulated": sim_churn,
+                "delta": delta_churn
+            },
+            "risk_assessment": assessment,
+            "impact_summary": summary
+        }
 
     @staticmethod
     def get_segments_summary():
@@ -185,16 +266,11 @@ class AnalyticsService:
 
     @staticmethod
     def get_macro_overview():
-        """
-        Şirketin genel durumunu, makro KPI'ları, segment yüzdelerini
-        ve kural tabanlı otomatik iş içgörülerini hesaplar.
-        """
         total_cust = len(customers_df)
         total_rev = float(round(customers_df["monetary"].sum(), 2))
         total_trans = int(customers_df["frequency"].sum())
         aov = float(round(total_rev / total_trans, 2)) if total_trans > 0 else 0.0
 
-        # Segment Dağılımı
         segment_counts = customers_df["segment"].value_counts()
         segment_dist = []
         for seg_name, count in segment_counts.items():
@@ -204,7 +280,6 @@ class AnalyticsService:
                 "percentage": round((count / total_cust) * 100, 1)
             })
 
-        # Otomatik Kural Tabanlı İş İçgörüleri (Automated Business Insights)
         insights = []
 
         # 1. Churn / Kayıp Riski Analizi

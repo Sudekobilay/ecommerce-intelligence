@@ -69,3 +69,21 @@ class RecommendedItem(BaseModel):
 class RecommendationResponse(BaseModel):
     input_items: List[str]
     recommendations: List[RecommendedItem]
+
+    # --- GÜN 13: WHAT-IF SIMULATION SCHEMAS ---
+class SimulationRequest(BaseModel):
+    days_to_next_order: int = 15       # Müşterinin kaç gün içinde sipariş vereceği senaryosu
+    additional_orders: int = 1         # Eklenecek tahmini sipariş sayısı
+    additional_spend: float = 100.0    # Sepete eklenecek tahmini harcama tutarı (£)
+
+class SimulationMetricComparison(BaseModel):
+    current: float
+    simulated: float
+    delta: float
+
+class SimulationResponse(BaseModel):
+    customer_id: int
+    health_score: SimulationMetricComparison
+    churn_probability_pct: SimulationMetricComparison
+    risk_assessment: str
+    impact_summary: str

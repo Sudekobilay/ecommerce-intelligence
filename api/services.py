@@ -1,7 +1,106 @@
 import pandas as pd
 import ast
 import os
+from scipy import stats
 
+
+# Segment aksiyon matrisi
+ACTION_MATRIX = {
+    "champions": {
+        "risk_level": "Düşük",
+        "action_title": "VIP Statüsü & Erken Erişim",
+        "action_detail": "Yeni ürünleri ilk deneyenler kulübüne dahil edin. Sadakat puanlarını katlayarak ödüllendirin.",
+        "recommended_channel": "VIP Temsilci / Özel İletişim Hattı"
+    },
+    "loyal": {
+        "risk_level": "Düşük",
+        "action_title": "Sepet Genişletme & Çapraz Satış",
+        "action_detail": "Birlikte sık alınan tamamlayıcı ürün önerileriyle sepet büyüklüğünü (AOV) artırın.",
+        "recommended_channel": "Kişiselleştirilmiş E-posta & Mobil Bildirim"
+    },
+    "potential": {
+        "risk_level": "Orta",
+        "action_title": "Sadakat Programı Teşviki",
+        "action_detail": "2. ve 3. siparişlerini hızlandırmak için süre kısıtlı teslimat avantajları veya kuponlar sunun.",
+        "recommended_channel": "Push Bildirim / Uygulama İçi Pop-up"
+    },
+    "risk": {
+        "risk_level": "Yüksek",
+        "action_title": "Acil Geri Kazanım (Win-Back)",
+        "action_detail": "Eski sipariş alışkanlıklarına uygun 'Seni Özledik' özel indirimi tanımlayarak reaktivasyon sağlayın.",
+        "recommended_channel": "Kişiye Özel SMS / Doğrudan İndirim Kuponu"
+    },
+    "cant_loose": {
+        "risk_level": "Kritik",
+        "action_title": "Müşteri Deneyimi & Birebir İletişim",
+        "action_detail": "Yüksek harcama geçmişine sahip bu müşteri kaybedilmek üzere. Doğrudan iletişime geçin.",
+        "recommended_channel": "Müşteri Deneyimi Ekibi Telefon Araması"
+    },
+    "hibernating": {
+        "risk_level": "Çok Yüksek",
+        "action_title": "Düşük Maliyetli Yeniden Hedefleme",
+        "action_detail": "Pahalı kanallardan çıkarıp genel sezon indirimleri ve retargeting reklamlarıyla yoklayın.",
+        "recommended_channel": "Sosyal Medya / Retargeting Reklamları"
+    }
+}
+
+def resolve_action_plan(segment: str) -> dict:
+    seg_clean = str(segment).lower().replace(" ", "_").replace("-", "_")
+    for key, val in ACTION_MATRIX.items():
+        if key in seg_clean:
+            return val
+    return {
+        "risk_level": "Orta",
+        "action_title": "Etkileşim Artırma",
+        "action_detail": "Müşterinin satın alma döngüsünü takip ederek genel ilgi alanlarına göre kampanya önerin.",
+        "recommended_channel": "Standart Bülten & E-posta"
+    }
+
+def build_deep_customer_profile(customer_row: pd.Series, all_df: pd.DataFrame) -> dict:
+    # 1. Yüzdelik Dilimler (Percentile Rank)
+    monetary_pct = float(round(stats.percentileofscore(all_df['monetary'], customer_row['monetary']), 1))
+    frequency_pct = float(round(stats.percentileofscore(all_df['frequency'], customer_row['frequency']), 1))
+    # Recency ters orantılı (az gün = daha taze/yüksek yüzdelik)
+    recency_pct = float(round(100.0 - stats.percentileofscore(all_df['recency'], customer_row['recency']), 1))
+
+    # 2. RFM Skorları (CSV'de yoksa veya float ise güvenli int dönüşümü)
+    r_val = int(customer_row.get('r_score', customer_row.get('R', 3)))
+    f_val = int(customer_row.get('f_score', customer_row.get('F', 3)))
+    m_val = int(customer_row.get('m_score', customer_row.get('M', 3)))
+
+    # 3. Müşteri Sağlık Skoru (CHS: 0 - 100)
+    health_score = int(((r_val / 5.0) * 35) + ((f_val / 5.0) * 35) + ((m_val / 5.0) * 30))
+    if health_score >= 80:
+        health_status = "Mükemmel (VIP)"
+    elif health_score >= 50:
+        health_status = "Stabil / Nurture"
+    else:
+        health_status = "Kritik / Churn Riski"
+
+    scorecard = {
+        "health_score": health_score,
+        "health_status": health_status,
+        "monetary_percentile": monetary_pct,
+        "frequency_percentile": frequency_pct,
+        "recency_percentile": recency_pct
+    }
+
+    action_plan = resolve_action_plan(str(customer_row.get('segment', '')))
+
+    return {
+        "customer_id": int(customer_row['customer_id']),
+        "recency": float(customer_row['recency']),
+        "frequency": float(customer_row['frequency']),
+        "monetary": float(customer_row['monetary']),
+        "r_score": r_val,
+        "f_score": f_val,
+        "m_score": m_val,
+        "rfm_score": str(customer_row.get('rfm_score', f"{r_val}{f_val}{m_val}")),
+        "segment": str(customer_row.get('segment', 'Unknown')),
+        "kmeans_cluster": int(customer_row.get('kmeans_cluster', 0)),
+        "scorecard": scorecard,
+        "action_plan": action_plan
+    }
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data", "processed")
 

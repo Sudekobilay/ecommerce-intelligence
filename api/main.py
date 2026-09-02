@@ -16,8 +16,8 @@ OVERVIEW_CACHE = None
 
 app = FastAPI(
     title="E-Commerce Intelligence API",
-    description="Customer Segmentation & Market Basket Recommendation Engine",
-    version="1.0.0"
+    description="Customer Segmentation, Intelligence Scorecards & Market Basket Recommendation Engine",
+    version="1.2.0"
 )
 
 # Flutter ve Web istemcileri için CORS izni
@@ -40,7 +40,7 @@ def startup_event():
 
 @app.get("/")
 def health_check():
-    return {"status": "active", "service": "E-Commerce Intelligence API"}
+    return {"status": "active", "service": "E-Commerce Intelligence API", "version": "1.2.0"}
 
 @app.get("/api/v1/analytics/overview", response_model=OverviewResponse)
 def get_macro_overview():
@@ -58,9 +58,16 @@ def get_macro_overview():
 
 @app.get("/api/v1/customer/{customer_id}", response_model=CustomerProfile)
 def get_customer_profile(customer_id: int):
+    """
+    Gün 12: Müşteri RFM skorları, Percentile dilimleri,
+    Müşteri Sağlık Skoru (CHS) ve Reçeteli Aksiyon Planını döner.
+    """
     customer = AnalyticsService.get_customer(customer_id)
     if not customer:
-        raise HTTPException(status_code=404, detail=f"Customer ID {customer_id} not found.")
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Customer ID {customer_id} bulunamadı."
+        )
     return customer
 
 @app.get("/api/v1/segments/summary", response_model=List[SegmentSummaryItem])

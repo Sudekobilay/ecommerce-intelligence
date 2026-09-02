@@ -3,7 +3,6 @@ import ast
 import os
 from scipy import stats
 
-
 # Segment aksiyon matrisi
 ACTION_MATRIX = {
     "champions": {
@@ -63,7 +62,7 @@ def build_deep_customer_profile(customer_row: pd.Series, all_df: pd.DataFrame) -
     # Recency ters orantılı (az gün = daha taze/yüksek yüzdelik)
     recency_pct = float(round(100.0 - stats.percentileofscore(all_df['recency'], customer_row['recency']), 1))
 
-    # 2. RFM Skorları (CSV'de yoksa veya float ise güvenli int dönüşümü)
+    # 2. RFM Skorları (CSV'de R, F, M veya r_score, f_score şeklinde olabilir)
     r_val = int(customer_row.get('r_score', customer_row.get('R', 3)))
     f_val = int(customer_row.get('f_score', customer_row.get('F', 3)))
     m_val = int(customer_row.get('m_score', customer_row.get('M', 3)))
@@ -87,6 +86,9 @@ def build_deep_customer_profile(customer_row: pd.Series, all_df: pd.DataFrame) -
 
     action_plan = resolve_action_plan(str(customer_row.get('segment', '')))
 
+    # rf_score / rfm_score uyumluluğu
+    rf_code = str(customer_row.get('rf_score', customer_row.get('RF_SCORE', customer_row.get('rfm_score', f"{r_val}{f_val}{m_val}"))))
+
     return {
         "customer_id": int(customer_row['customer_id']),
         "recency": float(customer_row['recency']),
@@ -95,12 +97,13 @@ def build_deep_customer_profile(customer_row: pd.Series, all_df: pd.DataFrame) -
         "r_score": r_val,
         "f_score": f_val,
         "m_score": m_val,
-        "rfm_score": str(customer_row.get('rfm_score', f"{r_val}{f_val}{m_val}")),
+        "rfm_score": rf_code,
         "segment": str(customer_row.get('segment', 'Unknown')),
         "kmeans_cluster": int(customer_row.get('kmeans_cluster', 0)),
         "scorecard": scorecard,
         "action_plan": action_plan
     }
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data", "processed")
 
@@ -129,16 +132,9 @@ class AnalyticsService:
     def get_customer(customer_id: int):
         if customer_id not in customers_df.index:
             return None
-        row = customers_df.loc[customer_id]
-        return {
-            "customer_id": customer_id,
-            "recency": float(row["recency"]),
-            "frequency": float(row["frequency"]),
-            "monetary": float(row["monetary"]),
-            "rf_score": str(row["RF_SCORE"]),
-            "segment": str(row["segment"]),
-            "kmeans_cluster": int(row["kmeans_cluster"])
-        }
+        row = customers_df.loc[customer_id].copy()
+        row['customer_id'] = customer_id
+        return build_deep_customer_profile(row, customers_df)
 
     @staticmethod
     def get_segments_summary():

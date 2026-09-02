@@ -21,7 +21,7 @@ An enterprise-grade, full-stack intelligence system combining unsupervised machi
 
 The project follows a decoupled, three-tier architecture ensuring scalability, clean separation of concerns, and cloud-native resilience:
 
-```text
+<pre>
 [ Raw Transaction Logs ]
           │
           ▼
@@ -40,7 +40,7 @@ The project follows a decoupled, three-tier architecture ensuring scalability, c
    ├── Executive Metrics Overview
    ├── Interactive Customer Search & Profile
    └── Smart Basket Recommendation Drawer
-```
+</pre>
 
 ---
 
@@ -74,7 +74,7 @@ The project follows a decoupled, three-tier architecture ensuring scalability, c
 
 ### 1. Clone the Repository
 ```bash
-git clone [https://github.com/Sudekobilay/ecommerce-intelligence.git](https://github.com/Sudekobilay/ecommerce-intelligence.git)
+git clone https://github.com/Sudekobilay/ecommerce-intelligence.git
 cd ecommerce-intelligence
 ```
 

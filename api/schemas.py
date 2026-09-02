@@ -1,10 +1,7 @@
 from pydantic import BaseModel
-from typing import List, Optional
-from typing import List, Dict, Any
-from pydantic import BaseModel
-from typing import Optional, List
+from typing import List, Optional, Dict, Any
 
-# --- GÜN 12 YENİ ŞEMALAR ---
+# --- GÜN 12 ANALİTİK ŞEMALARI ---
 class PrescriptiveAction(BaseModel):
     risk_level: str
     action_title: str
@@ -18,7 +15,6 @@ class CustomerScorecard(BaseModel):
     frequency_percentile: float
     recency_percentile: float
 
-# Mevcut CustomerProfile modelini şu şekilde güncelle / genişlet:
 class CustomerProfile(BaseModel):
     customer_id: int
     recency: float
@@ -27,13 +23,14 @@ class CustomerProfile(BaseModel):
     r_score: int
     f_score: int
     m_score: int
-    rfm_score: str
+    rf_score: Optional[str] = None
+    rfm_score: Optional[str] = None
     segment: str
     kmeans_cluster: int
     scorecard: Optional[CustomerScorecard] = None
     action_plan: Optional[PrescriptiveAction] = None
 
-
+# --- DASHBOARD & MAKRO BİLEŞENLERİ ---
 class SegmentDistributionItem(BaseModel):
     segment: str
     count: int
@@ -52,15 +49,6 @@ class OverviewResponse(BaseModel):
     average_order_value: float
     segment_distribution: List[SegmentDistributionItem]
     automated_insights: List[AutomatedInsightItem]
-
-class CustomerProfile(BaseModel):
-    customer_id: int
-    recency: float
-    frequency: float
-    monetary: float
-    rf_score: str
-    segment: str
-    kmeans_cluster: int
 
 class SegmentSummaryItem(BaseModel):
     segment: str

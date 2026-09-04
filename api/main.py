@@ -1,7 +1,7 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
-
+from fastapi.responses import PlainTextResponse
 from api.schemas import (
     CustomerProfile,
     SegmentSummaryItem,
@@ -102,3 +102,32 @@ def get_basket_recommendations(payload: RecommendationRequest):
         "input_items": payload.items,
         "recommendations": recs
     }
+
+@app.get("/api/v1/segments/{segment_name}/export")
+def export_segment_audience(segment_name: str):
+    """
+    Gün 14: Hedef Kitle Dışa Aktarma (Audience Export).
+    Belirli bir segmentteki müşterileri pazarlama araçlarına (Meta Ads, Klaviyo)
+    uygun CSV dosyası olarak stream eder.
+    """
+    csv_data = AnalyticsService.export_segment_csv(segment_name)
+    if not csv_data:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"'{segment_name}' segmentine ait müşteri bulunamadı."
+        )
+
+    filename = f"audience_{segment_name.lower().replace(' ', '_')}.csv"
+    return Response(
+        content=csv_data,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+@app.get("/api/v1/analytics/cohort")
+def get_cohort_analysis():
+    """
+    Gün 14: Müşteri Edinimi ve Tutma (Retention Cohort Matrix) Analizi.
+    Müşterilerin ilk alışveriş aylarından itibaren platforma bağlılık oranlarını döner.
+    """
+    return AnalyticsService.get_cohort_retention_matrix()

@@ -16,20 +16,70 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen>
+    with SingleTickerProviderStateMixin {
   late Future<Map<String, dynamic>> _analyticsFuture;
   late Future<CohortMatrixData> _cohortFuture;
   String _selectedTimeFilter = 'Tümü';
+
+  // Sayfa giriş animasyonu için Controller
+  late AnimationController _entryController;
+  late List<Animation<double>> _fadeAnimations;
+  late List<Animation<Offset>> _slideAnimations;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+
+    // Staggered (Sıralı) Giriş Animasyonu Yapılandırması
+    _entryController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+
+    _fadeAnimations = List.generate(4, (index) {
+      return CurvedAnimation(
+        parent: _entryController,
+        curve: Interval(
+          index * 0.15,
+          0.6 + (index * 0.1),
+          curve: Curves.easeOut,
+        ),
+      );
+    });
+
+    _slideAnimations = List.generate(4, (index) {
+      return Tween<Offset>(
+        begin: const Offset(0, 0.15),
+        end: Offset.zero,
+      ).animate(
+        CurvedAnimation(
+          parent: _entryController,
+          curve: Interval(
+            index * 0.15,
+            0.6 + (index * 0.1),
+            curve: Curves.easeOutCubic,
+          ),
+        ),
+      );
+    });
+
+    _entryController.forward();
   }
 
+  @override
+  void dispose() {
+    _entryController.dispose();
+    super.dispose();
+  }
+
+  // Her açılışta veya yenileme tetiklendiğinde verileri güncel çeken metot
   void _loadData() {
-    _analyticsFuture = ApiService.getOverviewAnalytics();
-    _cohortFuture = ApiService.fetchCohortMatrix();
+    setState(() {
+      _analyticsFuture = ApiService.getOverviewAnalytics();
+      _cohortFuture = ApiService.fetchCohortMatrix();
+    });
   }
 
   void _triggerHaptic(void Function() action) {
@@ -104,7 +154,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final cardBg = Theme.of(context).cardColor;
     final borderColor = isDark
         ? const Color(0xFF334155)
-        : const Color(0xFFE2E8F0);
+        : const Color(0xFFE5E0D8);
     final textMuted = isDark
         ? const Color(0xFF94A3B8)
         : const Color(0xFF64748B);
@@ -119,7 +169,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const BrandPulseLogo(size: 30),
             const SizedBox(width: 10),
             Text(
-              'Executive Cockpit',
+              'Executive KPI Cockpit',
               style: TextStyle(
                 fontWeight: FontWeight.w700,
                 fontSize: 17,
@@ -146,7 +196,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             icon: Icon(Icons.refresh_rounded, size: 20, color: textMuted),
             onPressed: () {
               _triggerHaptic(HapticFeedback.mediumImpact);
-              setState(_loadData);
+              _loadData();
+              _entryController.forward(from: 0.0);
             },
           ),
           if (widget.onLogout != null)
@@ -206,147 +257,208 @@ class _DashboardScreenState extends State<DashboardScreen> {
           return RefreshIndicator(
             onRefresh: () async {
               _triggerHaptic(HapticFeedback.mediumImpact);
-              setState(_loadData);
+              _loadData();
+              _entryController.forward(from: 0.0);
+              await _analyticsFuture;
             },
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildSectionHeader('DİNAMİK FİNANSAL KPI', textMuted),
-                    Row(
-                      children: ['Tümü', '30 Gün', '7 Gün'].map((filter) {
-                        final isSel = _selectedTimeFilter == filter;
-                        return Padding(
-                          padding: const EdgeInsets.only(left: 4),
-                          child: InkWell(
-                            onTap: () {
-                              _triggerHaptic(HapticFeedback.selectionClick);
-                              setState(() {
-                                _selectedTimeFilter = filter;
-                              });
-                            },
-                            borderRadius: BorderRadius.circular(6),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isSel ? const Color(0xFF2563EB) : cardBg,
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: isSel
-                                      ? const Color(0xFF2563EB)
-                                      : borderColor,
-                                ),
-                              ),
-                              child: Text(
-                                filter,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: isSel ? Colors.white : textMuted,
-                                ),
-                              ),
+                // 1. Blok: Finansal KPI Bölümü (Sıralı Giriş 0)
+                SlideTransition(
+                  position: _slideAnimations[0],
+                  child: FadeTransition(
+                    opacity: _fadeAnimations[0],
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _buildSectionHeader(
+                              'Makro Finansal Nabız',
+                              textMuted,
                             ),
-                          ),
-                        );
-                      }).toList(),
+                            Row(
+                              children: ['Tümü', '30 Gün', '7 Gün'].map((
+                                filter,
+                              ) {
+                                final isSel = _selectedTimeFilter == filter;
+                                return Padding(
+                                  padding: const EdgeInsets.only(left: 4),
+                                  child: InkWell(
+                                    onTap: () {
+                                      _triggerHaptic(
+                                        HapticFeedback.selectionClick,
+                                      );
+                                      setState(() {
+                                        _selectedTimeFilter = filter;
+                                      });
+                                    },
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: isSel
+                                            ? const Color(0xFF2563EB)
+                                            : cardBg,
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                          color: isSel
+                                              ? const Color(0xFF2563EB)
+                                              : borderColor,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        filter,
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                          color: isSel
+                                              ? Colors.white
+                                              : textMuted,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        GridView.count(
+                          crossAxisCount: 2,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                          childAspectRatio: 2.2,
+                          children: [
+                            _buildKpiCard(
+                              'Toplam Ciro',
+                              dynamicRevenue,
+                              true,
+                              Icons.trending_up_rounded,
+                              const Color(0xFF10B981),
+                              cardBg,
+                              borderColor,
+                              isDark,
+                            ),
+                            _buildKpiCard(
+                              'Müşteri Hacmi',
+                              dynamicCustomers.toDouble(),
+                              false,
+                              Icons.people_outline,
+                              const Color(0xFF2563EB),
+                              cardBg,
+                              borderColor,
+                              isDark,
+                            ),
+                            _buildKpiCard(
+                              'Ort. Sepet (AOV)',
+                              dynamicAov,
+                              true,
+                              Icons.shopping_bag_outlined,
+                              const Color(0xFFF59E0B),
+                              cardBg,
+                              borderColor,
+                              isDark,
+                            ),
+                            _buildKpiCard(
+                              'Toplam Sipariş',
+                              dynamicOrders.toDouble(),
+                              false,
+                              Icons.receipt_long_outlined,
+                              const Color(0xFF8B5CF6),
+                              cardBg,
+                              borderColor,
+                              isDark,
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-
-                GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                  childAspectRatio: 2.2,
-                  children: [
-                    _buildKpiCard(
-                      'Toplam Ciro',
-                      MetricFormatter.currency(dynamicRevenue),
-                      Icons.trending_up_rounded,
-                      const Color(0xFF10B981),
-                      cardBg,
-                      borderColor,
-                      isDark,
-                    ),
-                    _buildKpiCard(
-                      'Müşteri Hacmi',
-                      MetricFormatter.compactNumber(dynamicCustomers),
-                      Icons.people_outline,
-                      const Color(0xFF2563EB),
-                      cardBg,
-                      borderColor,
-                      isDark,
-                    ),
-                    _buildKpiCard(
-                      'Ort. Sepet (AOV)',
-                      MetricFormatter.currency(dynamicAov),
-                      Icons.shopping_bag_outlined,
-                      const Color(0xFFF59E0B),
-                      cardBg,
-                      borderColor,
-                      isDark,
-                    ),
-                    _buildKpiCard(
-                      'Toplam Sipariş',
-                      MetricFormatter.compactNumber(dynamicOrders),
-                      Icons.receipt_long_outlined,
-                      const Color(0xFF8B5CF6),
-                      cardBg,
-                      borderColor,
-                      isDark,
-                    ),
-                  ],
+                  ),
                 ),
                 const SizedBox(height: 20),
 
+                // 2. Blok: Otomatik İş İçgörüleri (Sıralı Giriş 1)
                 if (insights.isNotEmpty) ...[
-                  _buildSectionHeader(
-                    'OTOMATİK İŞ VE AKSİYON İÇGÖRÜLERİ',
-                    textMuted,
-                  ),
-                  const SizedBox(height: 10),
-                  ...insights.map(
-                    (item) =>
-                        _buildInsightCard(item, cardBg, borderColor, isDark),
+                  SlideTransition(
+                    position: _slideAnimations[1],
+                    child: FadeTransition(
+                      opacity: _fadeAnimations[1],
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSectionHeader(
+                            'OTOMATİK İŞ VE AKSİYON İÇGÖRÜLERİ',
+                            textMuted,
+                          ),
+                          const SizedBox(height: 10),
+                          ...insights.map(
+                            (item) => _buildInsightCard(
+                              item,
+                              cardBg,
+                              borderColor,
+                              isDark,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 16),
                 ],
 
-                _buildCollapsibleCard(
-                  title: 'Müşteri Segmentleri & Kitle İhracı',
-                  subtitle: 'Pazarlama hedefleme (Meta/Klaviyo) CSV listeleri',
-                  icon: Icons.pie_chart_outline_rounded,
-                  cardBg: cardBg,
-                  borderColor: borderColor,
-                  isDark: isDark,
-                  initiallyExpanded: false,
-                  child: Column(
-                    children: segments
-                        .map(
-                          (seg) => _buildSegmentRow(seg, isDark, borderColor),
-                        )
-                        .toList(),
+                // 3. Blok: Müşteri Segmentleri (Sıralı Giriş 2)
+                SlideTransition(
+                  position: _slideAnimations[2],
+                  child: FadeTransition(
+                    opacity: _fadeAnimations[2],
+                    child: _buildCollapsibleCard(
+                      title: 'Müşteri Segmentleri & Kitle İhracı',
+                      subtitle:
+                          'Pazarlama hedefleme (Meta/Klaviyo) CSV listeleri',
+                      icon: Icons.pie_chart_outline_rounded,
+                      cardBg: cardBg,
+                      borderColor: borderColor,
+                      isDark: isDark,
+                      initiallyExpanded: false,
+                      child: Column(
+                        children: segments
+                            .map(
+                              (seg) =>
+                                  _buildSegmentRow(seg, isDark, borderColor),
+                            )
+                            .toList(),
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
 
-                _buildCollapsibleCard(
-                  title: 'Kohort Yaşam Döngüsü & Tutma Matrisi',
-                  subtitle: 'Aylık platform sadakat oranı (Retention Heatmap)',
-                  icon: Icons.grid_view_rounded,
-                  cardBg: cardBg,
-                  borderColor: borderColor,
-                  isDark: isDark,
-                  initiallyExpanded: false,
-                  child: _buildCohortHeatmap(cardBg, borderColor, isDark),
+                // 4. Blok: Kohort Matrisi (Sıralı Giriş 3)
+                SlideTransition(
+                  position: _slideAnimations[3],
+                  child: FadeTransition(
+                    opacity: _fadeAnimations[3],
+                    child: _buildCollapsibleCard(
+                      title: 'Kohort Yaşam Döngüsü & Tutma Matrisi',
+                      subtitle:
+                          'Aylık platform sadakat oranı (Retention Heatmap)',
+                      icon: Icons.grid_view_rounded,
+                      cardBg: cardBg,
+                      borderColor: borderColor,
+                      isDark: isDark,
+                      initiallyExpanded: false,
+                      child: _buildCohortHeatmap(cardBg, borderColor, isDark),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 24),
               ],
@@ -369,9 +481,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  // Sayaç (Counter) Animasyonlu KPI Kartı
   Widget _buildKpiCard(
     String title,
-    String value,
+    double targetValue,
+    bool isCurrency,
     IconData icon,
     Color accent,
     Color cardBg,
@@ -412,15 +526,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     fontSize: 11,
                   ),
                 ),
-                Text(
-                  value,
-                  style: TextStyle(
-                    color: isDark
-                        ? const Color(0xFFF8FAFC)
-                        : const Color(0xFF0F172A),
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
+                TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: 0, end: targetValue),
+                  duration: const Duration(milliseconds: 900),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, value, _) {
+                    final formattedText = isCurrency
+                        ? MetricFormatter.currency(value)
+                        : MetricFormatter.compactNumber(value.toInt());
+                    return Text(
+                      formattedText,
+                      style: TextStyle(
+                        color: isDark
+                            ? const Color(0xFFF8FAFC)
+                            : const Color(0xFF0F172A),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -820,7 +944,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               onPressed: () {
                 _triggerHaptic(HapticFeedback.mediumImpact);
-                setState(_loadData);
+                _loadData();
               },
               child: const Text('Tekrar Dene'),
             ),

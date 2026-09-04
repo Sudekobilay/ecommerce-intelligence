@@ -36,18 +36,13 @@ class _CustomerAnalyticsScreenState extends State<CustomerAnalyticsScreen> {
   List<RecommendedItem> _recommendations = [];
   bool _isLoadingRecs = false;
 
-  final List<String> _sampleProducts = [
-    "POPPY'S PLAYHOUSE KITCHEN",
-    "POPPY'S PLAYHOUSE BEDROOM",
-    "GREEN REGENCY TEACUP AND SAUCER",
-    "SET/10 BLUE SPOTTY PARTY CANDLES",
-    "JUMBO BAG RED RETROSPOT",
-    "WHITE HANGING HEART T-LIGHT HOLDER",
-  ];
+  List<String> _displayProducts = [];
+  bool _isLoadingProductsPool = false;
 
   @override
   void initState() {
     super.initState();
+    _loadDynamicProductPool();
     _searchCustomer();
   }
 
@@ -56,6 +51,31 @@ class _CustomerAnalyticsScreenState extends State<CustomerAnalyticsScreen> {
     _idController.dispose();
     _customProductController.dispose();
     super.dispose();
+  }
+
+  void _loadDynamicProductPool() async {
+    setState(() {
+      _isLoadingProductsPool = true;
+    });
+
+    try {
+      final products = await ApiService.fetchRandomProductsPool();
+      setState(() {
+        _displayProducts = products;
+      });
+    } catch (_) {
+      setState(() {
+        _displayProducts = [
+          "POPPY'S PLAYHOUSE KITCHEN",
+          "GREEN REGENCY TEACUP AND SAUCER",
+          "JUMBO BAG RED RETROSPOT",
+        ];
+      });
+    } finally {
+      setState(() {
+        _isLoadingProductsPool = false;
+      });
+    }
   }
 
   void _triggerHaptic(void Function() action) {
@@ -280,10 +300,12 @@ class _CustomerAnalyticsScreenState extends State<CustomerAnalyticsScreen> {
             child: Divider(height: 1, color: borderColor),
           ),
           title: Text(
-            'Müşteri 360° & Yaşam Döngüsü Analitiği',
+            'Müşteri 360° & Yaşam Döngüsü',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontWeight: FontWeight.w700,
-              fontSize: 16,
+              fontSize: 15,
               color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
@@ -323,6 +345,12 @@ class _CustomerAnalyticsScreenState extends State<CustomerAnalyticsScreen> {
                         ),
                         onSubmitted: (_) => _searchCustomer(),
                       ),
+                    ),
+                    IconButton(
+                      onPressed: () => _showCustomerSearchDialog(context),
+                      icon: const Icon(Icons.person_search_rounded, size: 20),
+                      color: const Color(0xFF2563EB),
+                      tooltip: 'İsme Göre Müşteri Ara',
                     ),
                     SizedBox(
                       height: 48,
@@ -484,52 +512,89 @@ class _CustomerAnalyticsScreenState extends State<CustomerAnalyticsScreen> {
               ),
               const SizedBox(height: 12),
 
-              Text(
-                "Önerilen Hızlı Ürünler:",
-                style: TextStyle(fontSize: 11, color: textMuted),
-              ),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: _sampleProducts.map((p) {
-                  final isInCart = _cart.contains(p);
-                  return ActionChip(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    backgroundColor: isInCart
-                        ? const Color(0xFF2563EB).withValues(alpha: 0.1)
-                        : cardBg,
-                    side: BorderSide(
-                      color: isInCart ? const Color(0xFF2563EB) : borderColor,
-                    ),
-                    avatar: Icon(
-                      isInCart ? Icons.check : Icons.add,
-                      size: 13,
-                      color: isInCart ? const Color(0xFF2563EB) : textMuted,
-                    ),
-                    label: Text(
-                      p,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: isInCart
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                        color: isInCart
-                            ? const Color(0xFF2563EB)
-                            : (isDark
-                                  ? const Color(0xFFF8FAFC)
-                                  : const Color(0xFF0F172A)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    "Canlı Önerilen Hızlı Ürünler:",
+                    style: TextStyle(fontSize: 11, color: textMuted),
+                  ),
+                  if (_isLoadingProductsPool)
+                    const SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5,
+                        color: Color(0xFF2563EB),
                       ),
                     ),
-                    onPressed: () {
-                      if (isInCart) {
-                        _confirmRemoveCartItem(p);
-                      } else {
-                        _addToCart(p);
-                      }
-                    },
-                  );
-                }).toList(),
+                ],
+              ),
+              const SizedBox(height: 6),
+
+              SizedBox(
+                height: 38,
+                child: _isLoadingProductsPool
+                    ? const Center(
+                        child: Text(
+                          'Ürün havuzu yükleniyor...',
+                          style: TextStyle(fontSize: 11),
+                        ),
+                      )
+                    : ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _displayProducts.length,
+                        itemBuilder: (context, index) {
+                          final p = _displayProducts[index];
+                          final isInCart = _cart.contains(p);
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: ActionChip(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                              ),
+                              backgroundColor: isInCart
+                                  ? const Color(
+                                      0xFF2563EB,
+                                    ).withValues(alpha: 0.1)
+                                  : cardBg,
+                              side: BorderSide(
+                                color: isInCart
+                                    ? const Color(0xFF2563EB)
+                                    : borderColor,
+                              ),
+                              avatar: Icon(
+                                isInCart ? Icons.check : Icons.add,
+                                size: 13,
+                                color: isInCart
+                                    ? const Color(0xFF2563EB)
+                                    : textMuted,
+                              ),
+                              label: Text(
+                                p,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: isInCart
+                                      ? FontWeight.w600
+                                      : FontWeight.w400,
+                                  color: isInCart
+                                      ? const Color(0xFF2563EB)
+                                      : (isDark
+                                            ? const Color(0xFFF8FAFC)
+                                            : const Color(0xFF0F172A)),
+                                ),
+                              ),
+                              onPressed: () {
+                                if (isInCart) {
+                                  _confirmRemoveCartItem(p);
+                                } else {
+                                  _addToCart(p);
+                                }
+                              },
+                            ),
+                          );
+                        },
+                      ),
               ),
               const SizedBox(height: 14),
 
@@ -1376,9 +1441,13 @@ class _CustomerAnalyticsScreenState extends State<CustomerAnalyticsScreen> {
             children: [
               Icon(Icons.campaign_outlined, color: textMuted, size: 14),
               const SizedBox(width: 5),
-              Text(
-                "Önerilen Kanal: ${action.recommendedChannel}",
-                style: TextStyle(color: textMuted, fontSize: 11),
+              Expanded(
+                child: Text(
+                  "Önerilen Kanal: ${action.recommendedChannel}",
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: textMuted, fontSize: 11),
+                ),
               ),
             ],
           ),
@@ -1416,6 +1485,70 @@ class _CustomerAnalyticsScreenState extends State<CustomerAnalyticsScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  void _showCustomerSearchDialog(BuildContext context) {
+    final List<Map<String, dynamic>> sampleCustomers = [
+      {'id': 12347, 'name': 'Ahmet Yılmaz', 'segment': 'Sadık Müşteri'},
+      {'id': 12348, 'name': 'Ayşe Demir', 'segment': 'Risk Altında'},
+      {'id': 12349, 'name': 'Mehmet Kaya', 'segment': 'Yüksek Harcama'},
+      {'id': 12350, 'name': 'Zeynep Çelik', 'segment': 'Potansiyel Churn'},
+    ];
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Müşteri Seçimi'),
+          content: SizedBox(
+            width: 320,
+            height: 320,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: sampleCustomers.length,
+              itemBuilder: (context, index) {
+                final customer = sampleCustomers[index];
+                final name = customer['name'].toString();
+                // İsimden baş harfleri türetme (Örn: Ahmet Yılmaz -> AY)
+                final initials = name.isNotEmpty
+                    ? name
+                          .split(' ')
+                          .map((e) => e[0])
+                          .take(2)
+                          .join()
+                          .toUpperCase()
+                    : 'M';
+
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: Colors.blue.shade50,
+                    child: Text(
+                      initials,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2563EB),
+                      ),
+                    ),
+                  ),
+                  title: Text(customer['name']),
+                  subtitle: Text(
+                    'ID: ${customer['id']} • ${customer['segment']}',
+                  ),
+                  onTap: () {
+                    setState(() {
+                      _idController.text = customer['id'].toString();
+                    });
+                    Navigator.pop(context);
+                    _searchCustomer();
+                  },
+                );
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 }

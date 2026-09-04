@@ -27,8 +27,59 @@ class EcommerceIntelligenceApp extends StatefulWidget {
       _EcommerceIntelligenceAppState();
 }
 
-class _EcommerceIntelligenceAppState extends State<EcommerceIntelligenceApp> {
+class _EcommerceIntelligenceAppState extends State<EcommerceIntelligenceApp>
+    with SingleTickerProviderStateMixin {
   UserSession? _currentSession;
+  late AnimationController _transitionController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _transitionController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+
+    _fadeAnimation = CurvedAnimation(
+      parent: _transitionController,
+      curve: Curves.easeInOut,
+    );
+
+    _slideAnimation =
+        Tween<Offset>(
+          begin: const Offset(0, 0.08), // Hafif aşağıdan yukarı süzülme efekti
+          end: Offset.zero,
+        ).animate(
+          CurvedAnimation(
+            parent: _transitionController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
+
+    _transitionController.forward();
+  }
+
+  @override
+  void dispose() {
+    _transitionController.dispose();
+    super.dispose();
+  }
+
+  void _handleLoginSuccess(UserSession session) {
+    setState(() {
+      _currentSession = session;
+    });
+    _transitionController.forward(from: 0.0);
+  }
+
+  void _handleLogout() {
+    setState(() {
+      _currentSession = null;
+    });
+    _transitionController.forward(from: 0.0);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,15 +93,15 @@ class _EcommerceIntelligenceAppState extends State<EcommerceIntelligenceApp> {
           theme: ThemeData(
             useMaterial3: true,
             brightness: Brightness.light,
-            scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+            scaffoldBackgroundColor: const Color(0xFFFBF9F5),
             cardColor: Colors.white,
             colorScheme: const ColorScheme.light(
               primary: Color(0xFF2563EB),
               surface: Colors.white,
               onSurface: Color(0xFF0F172A),
-              outline: Color(0xFFE2E8F0),
+              outline: Color(0xFFE5E0D8),
             ),
-            dividerColor: const Color(0xFFE2E8F0),
+            dividerColor: const Color(0xFFE5E0D8),
             fontFamily: 'Segoe UI',
           ),
           darkTheme: ThemeData(
@@ -67,22 +118,18 @@ class _EcommerceIntelligenceAppState extends State<EcommerceIntelligenceApp> {
             dividerColor: const Color(0xFF334155),
             fontFamily: 'Segoe UI',
           ),
-          home: _currentSession == null
-              ? LoginScreen(
-                  onLoginSuccess: (session) {
-                    setState(() {
-                      _currentSession = session;
-                    });
-                  },
-                )
-              : MainNavigationScreen(
-                  session: _currentSession!,
-                  onLogout: () {
-                    setState(() {
-                      _currentSession = null;
-                    });
-                  },
-                ),
+          home: FadeTransition(
+            opacity: _fadeAnimation,
+            child: SlideTransition(
+              position: _slideAnimation,
+              child: _currentSession == null
+                  ? LoginScreen(onLoginSuccess: _handleLoginSuccess)
+                  : MainNavigationScreen(
+                      session: _currentSession!,
+                      onLogout: _handleLogout,
+                    ),
+            ),
+          ),
         );
       },
     );
@@ -124,7 +171,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       CustomerAnalyticsScreen(onLogout: widget.onLogout),
     ];
 
-    // Eğer tek ekran erişilebilirsa (Pazarlama Uzmanı), alt menü kuralına takılmamak için direkt ekranı döndür
     if (!isExecutive) {
       return Scaffold(body: accessibleScreens[0]);
     }
@@ -133,7 +179,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       NavigationDestination(
         icon: Icon(Icons.analytics_outlined),
         selectedIcon: Icon(Icons.analytics_rounded, color: Color(0xFF2563EB)),
-        label: 'Cockpit BI',
+        label: 'Executive Cockpit',
       ),
       NavigationDestination(
         icon: Icon(Icons.person_search_outlined),
@@ -152,10 +198,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFFBF9F5),
           border: Border(
             top: BorderSide(
-              color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+              color: isDark ? const Color(0xFF334155) : const Color(0xFFE5E0D8),
               width: 1,
             ),
           ),

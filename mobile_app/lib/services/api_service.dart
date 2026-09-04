@@ -1,12 +1,52 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:web/web.dart' as web;
+import 'package:url_launcher/url_launcher.dart';
 import '../models/intelligence_models.dart';
+import '../models/auth_models.dart'; // UserSession ve UserRole için eklendi
 
 class ApiService {
   // Canlı Render PaaS backend URL'i
   static const String baseUrl =
       'https://ecommerce-intelligence-8juv.onrender.com';
+
+  /// Gün 15: Backend tabanlı kurumsal kimlik doğrulama (Login)
+  static Future<UserSession> login(
+    String email,
+    String password,
+    UserRole role,
+  ) async {
+    final roleStr = role == UserRole.executive ? 'executive' : 'marketing';
+    final url = Uri.parse('$baseUrl/api/v1/auth/login');
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email,
+          'password': password,
+          'role': roleStr,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        return UserSession(
+          email: data['email'],
+          role: data['role'] == 'executive'
+              ? UserRole.executive
+              : UserRole.marketing,
+        );
+      } else {
+        final errorData = jsonDecode(utf8.decode(response.bodyBytes));
+        throw Exception(
+          errorData['detail'] ?? 'Kimlik doğrulama başarısız oldu.',
+        );
+      }
+    } catch (e) {
+      throw Exception('Giriş servisi bağlantı hatası: $e');
+    }
+  }
 
   /// Gün 11: Makro KPI'lar, Segment Dağılımı ve Otomatik İş İçgörüleri
   static Future<Map<String, dynamic>> getOverviewAnalytics() async {
@@ -115,17 +155,39 @@ class ApiService {
     }
   }
 
-  /// Gün 14: Segment Müşteri CSV İhracı (Doğrudan Tarayıcı İndirmesi)
-  static void exportSegmentCsv(String segmentName) {
-    final cleanName = segmentName.toLowerCase().replaceAll(' ', '_');
-    final url = '$baseUrl/api/v1/segments/$cleanName/export';
+  /// Dinamik/Canlı Hızlı Ürün Havuzu (Backend Entegrasyonlu)
+  static Future<List<String>> fetchRandomProductsPool() async {
+    final url = Uri.parse('$baseUrl/api/v1/products/random-pool');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
+        return data.map((item) => item.toString()).toList();
+      }
+    } catch (_) {}
 
-    final anchor = web.document.createElement('a') as web.HTMLAnchorElement;
-    anchor.href = url;
-    anchor.download = 'audience_$cleanName.csv';
-    anchor.target = '_blank';
-    web.document.body?.append(anchor);
-    anchor.click();
-    anchor.remove();
+    // Fallback/Yedek statik liste (Sunucu yanıt vermezse)
+    return [
+      "POPPY'S PLAYHOUSE KITCHEN",
+      "POPPY'S PLAYHOUSE BEDROOM",
+      "GREEN REGENCY TEACUP AND SAUCER",
+      "SET/10 BLUE SPOTTY PARTY CANDLES",
+      "JUMBO BAG RED RETROSPOT",
+      "WHITE HANGING HEART T-LIGHT HOLDER",
+      "REGENCY CAKESTAND 3 TIER",
+      "HEART OF WICKER SMALL",
+      "JUMBO STORAGE BAG SKULL",
+      "PACK OF 72 RETRO SPOT CAKE CASES",
+    ];
+  }
+
+  /// Gün 14: Segment Müşteri CSV İhracı (url_launcher kullanarak platform bağımsız güvenli indirme)
+  static Future<void> exportSegmentCsv(String segmentName) async {
+    final cleanName = segmentName.toLowerCase().replaceAll(' ', '_');
+    final url = Uri.parse('$baseUrl/api/v1/segments/$cleanName/export');
+
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    }
   }
 }

@@ -102,30 +102,3 @@ def get_basket_recommendations(payload: RecommendationRequest):
         "input_items": payload.items,
         "recommendations": recs
     }
-
-@app.get("/api/v1/customer/{customer_id}", response_model=CustomerProfile)
-def get_customer_profile(customer_id: int):
-    customer = AnalyticsService.get_customer(customer_id)
-    if not customer:
-        raise HTTPException(
-            status_code=404, 
-            detail=f"Customer ID {customer_id} bulunamadı."
-        )
-    return customer
-
-# --- BURAYA EKLENECEK ---
-@app.post("/api/v1/customer/{customer_id}/simulate", response_model=SimulationResponse)
-def simulate_customer(customer_id: int, payload: SimulationRequest):
-    """
-    Gün 13: Gelecek senaryoları simülasyonu (What-If Motoru).
-    Müşteriye yapılacak olası temasların Churn ve CHS üzerindeki etkisini hesaplar.
-    """
-    sim_result = AnalyticsService.simulate_customer_scenario(
-        customer_id=customer_id,
-        days_to_next_order=payload.days_to_next_order,
-        additional_orders=payload.additional_orders,
-        additional_spend=payload.additional_spend
-    )
-    if not sim_result:
-        raise HTTPException(status_code=404, detail=f"Customer ID {customer_id} bulunamadı.")
-    return sim_result

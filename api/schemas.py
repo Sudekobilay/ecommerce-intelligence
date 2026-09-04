@@ -87,3 +87,16 @@ class SimulationResponse(BaseModel):
     churn_probability_pct: SimulationMetricComparison
     risk_assessment: str
     impact_summary: str
+
+    # --- GÜN 15: AUTH SCHEMAS ---
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+    role: str  # 'executive' veya 'marketing'
+
+class LoginResponse(BaseModel):
+    success: bool
+    message: str
+    email: str
+    role: str
+    token: str

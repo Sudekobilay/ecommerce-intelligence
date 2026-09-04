@@ -9,7 +9,9 @@ from api.schemas import (
     RecommendationResponse,
     OverviewResponse,
     SimulationRequest,
-    SimulationResponse
+    SimulationResponse,
+    LoginRequest,   
+    LoginResponse
 )
 from api.services import AnalyticsService
 
@@ -131,3 +133,37 @@ def get_cohort_analysis():
     Müşterilerin ilk alışveriş aylarından itibaren platforma bağlılık oranlarını döner.
     """
     return AnalyticsService.get_cohort_retention_matrix()
+
+@app.post("/api/v1/auth/login", response_model=LoginResponse)
+def login_user(payload: LoginRequest):
+    """
+    Kurumsal e-posta, şifre ve rol doğrulaması yaparak oturum tokeni üretir.
+    """
+    email = payload.email.strip().lower()
+    password = payload.password.strip()
+    role = payload.role.strip().lower()
+
+    # Örnek kurumsal doğrulama matrisi (İleride veritabanı veya JWT ile genişletilebilir)
+    if role == "executive":
+        if email == "yonetici@pulsebi.com" and password == "1234":
+            return {
+                "success": True,
+                "message": "Yönetici oturumu başarıyla açıldı.",
+                "email": email,
+                "role": "executive",
+                "token": "pulse_exec_token_secure_9988"
+            }
+    elif role == "marketing":
+        if email == "pazarlama@pulsebi.com" and password == "1234":
+            return {
+                "success": True,
+                "message": "Pazarlama uzmanı oturumu başarıyla açıldı.",
+                "email": email,
+                "role": "marketing",
+                "token": "pulse_mkt_token_secure_5544"
+            }
+
+    raise HTTPException(
+        status_code=401,
+        detail="Geçersiz kurumsal e-posta, şifre veya rol seçimi."
+    )

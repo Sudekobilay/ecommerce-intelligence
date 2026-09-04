@@ -120,3 +120,54 @@ class RecommendedItem {
     );
   }
 }
+
+// --- GÜN 13: WHAT-IF SİMÜLASYON MODELLERİ ---
+class SimulationMetricComparison {
+  final double current;
+  final double simulated;
+  final double delta;
+
+  SimulationMetricComparison({
+    required this.current,
+    required this.simulated,
+    required this.delta,
+  });
+
+  factory SimulationMetricComparison.fromJson(Map<String, dynamic> json) {
+    return SimulationMetricComparison(
+      current: (json['current'] as num?)?.toDouble() ?? 0.0,
+      simulated: (json['simulated'] as num?)?.toDouble() ?? 0.0,
+      delta: (json['delta'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+}
+
+class SimulationResult {
+  final int customerId;
+  final SimulationMetricComparison healthScore;
+  final SimulationMetricComparison churnProbabilityPct;
+  final String riskAssessment;
+  final String impactSummary;
+
+  SimulationResult({
+    required this.customerId,
+    required this.healthScore,
+    required this.churnProbabilityPct,
+    required this.riskAssessment,
+    required this.impactSummary,
+  });
+
+  factory SimulationResult.fromJson(Map<String, dynamic> json) {
+    return SimulationResult(
+      customerId: json['customer_id'] as int? ?? 0,
+      healthScore: SimulationMetricComparison.fromJson(
+        json['health_score'] ?? {},
+      ),
+      churnProbabilityPct: SimulationMetricComparison.fromJson(
+        json['churn_probability_pct'] ?? {},
+      ),
+      riskAssessment: json['risk_assessment'] as String? ?? '',
+      impactSummary: json['impact_summary'] as String? ?? '',
+    );
+  }
+}

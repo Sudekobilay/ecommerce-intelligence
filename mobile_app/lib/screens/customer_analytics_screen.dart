@@ -19,6 +19,13 @@ class _CustomerAnalyticsScreenState extends State<CustomerAnalyticsScreen> {
   bool _isLoadingCustomer = false;
   String? _customerError;
 
+  // --- GÜN 13: WHAT-IF SİMÜLASYON STATE'LERİ ---
+  double _simDays = 15;
+  double _simOrders = 1;
+  double _simSpend = 100;
+  SimulationResult? _simResult;
+  bool _isSimulating = false;
+
   final List<String> _cart = [];
   List<RecommendedItem> _recommendations = [];
   bool _isLoadingRecs = false;
@@ -43,6 +50,8 @@ class _CustomerAnalyticsScreenState extends State<CustomerAnalyticsScreen> {
     setState(() {
       _isLoadingCustomer = true;
       _customerError = null;
+      _simResult =
+          null; // Yeni arama yapıldığında eski simülasyon sonucunu sıfırla
     });
 
     try {
@@ -55,6 +64,35 @@ class _CustomerAnalyticsScreenState extends State<CustomerAnalyticsScreen> {
       setState(() => _customerError = "HATA: $e");
     } finally {
       setState(() => _isLoadingCustomer = false);
+    }
+  }
+
+  void _runSimulation() async {
+    if (_customer == null) return;
+
+    setState(() => _isSimulating = true);
+
+    try {
+      final res = await ApiService.simulateCustomer(
+        customerId: _customer!.customerId,
+        daysToNextOrder: _simDays.toInt(),
+        additionalOrders: _simOrders.toInt(),
+        additionalSpend: _simSpend,
+      );
+      setState(() {
+        _simResult = res;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.redAccent,
+            content: Text('Simülasyon motoru hatası: $e'),
+          ),
+        );
+      }
+    } finally {
+      setState(() => _isSimulating = false);
     }
   }
 
@@ -188,6 +226,9 @@ class _CustomerAnalyticsScreenState extends State<CustomerAnalyticsScreen> {
               const SizedBox(height: 16),
               if (_customer!.actionPlan != null)
                 _buildActionPlanCard(_customer!.actionPlan!),
+              const SizedBox(height: 16),
+              // --- GÜN 13 SIMÜLATÖR BİLEŞENİ ---
+              _buildWhatIfSimulationCard(),
             ],
 
             const Divider(height: 40, color: Colors.white10),
@@ -298,6 +339,305 @@ class _CustomerAnalyticsScreenState extends State<CustomerAnalyticsScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildWhatIfSimulationCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.auto_graph_rounded,
+                color: Colors.cyanAccent,
+                size: 20,
+              ),
+              SizedBox(width: 8),
+              Text(
+                "WHAT-IF SENARYO SİMÜLATÖRÜ",
+                style: TextStyle(
+                  color: Colors.cyanAccent,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.1,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            "Pazarlama aksiyonlarının sağlık skoru ve churn olasılığı üzerindeki etkisini öngörün.",
+            style: TextStyle(color: Colors.white60, fontSize: 11),
+          ),
+          const SizedBox(height: 16),
+
+          // Slider 1: Gün
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "Sonraki Siparişe Kalan Süre:",
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              Text(
+                "${_simDays.toInt()} Gün",
+                style: const TextStyle(
+                  color: Colors.cyanAccent,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: Colors.cyanAccent,
+              thumbColor: Colors.cyanAccent,
+              inactiveTrackColor: Colors.white12,
+            ),
+            child: Slider(
+              value: _simDays,
+              min: 1,
+              max: 90,
+              divisions: 89,
+              onChanged: (val) => setState(() => _simDays = val),
+            ),
+          ),
+
+          // Slider 2: Sipariş
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "Eklenecek Sipariş Sayısı:",
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              Text(
+                "+${_simOrders.toInt()} Sipariş",
+                style: const TextStyle(
+                  color: Color(0xFF34D399),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: const Color(0xFF34D399),
+              thumbColor: const Color(0xFF34D399),
+              inactiveTrackColor: Colors.white12,
+            ),
+            child: Slider(
+              value: _simOrders,
+              min: 0,
+              max: 5,
+              divisions: 5,
+              onChanged: (val) => setState(() => _simOrders = val),
+            ),
+          ),
+
+          // Slider 3: Harcama
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "Tahmini Ek Harcama:",
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              Text(
+                "£${_simSpend.toInt()}",
+                style: const TextStyle(
+                  color: Color(0xFFFBBF24),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: const Color(0xFFFBBF24),
+              thumbColor: const Color(0xFFFBBF24),
+              inactiveTrackColor: Colors.white12,
+            ),
+            child: Slider(
+              value: _simSpend,
+              min: 10,
+              max: 500,
+              divisions: 49,
+              onChanged: (val) => setState(() => _simSpend = val),
+            ),
+          ),
+
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.cyanAccent,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              onPressed: _isSimulating ? null : _runSimulation,
+              icon: _isSimulating
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.black,
+                      ),
+                    )
+                  : const Icon(Icons.bolt_rounded, size: 18),
+              label: Text(
+                _isSimulating ? "Simüle Ediliyor..." : "Senaryoyu Simüle Et",
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+
+          if (_simResult != null) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.white12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildSimulationDeltaItem(
+                        title: "Müşteri Sağlık Skoru",
+                        before: "${_simResult!.healthScore.current.toInt()}",
+                        after: "${_simResult!.healthScore.simulated.toInt()}",
+                        delta: _simResult!.healthScore.delta,
+                        isHigherBetter: true,
+                        unit: "/100",
+                      ),
+                      _buildSimulationDeltaItem(
+                        title: "Churn (Kayıp) Olasılığı",
+                        before: "%${_simResult!.churnProbabilityPct.current}",
+                        after: "%${_simResult!.churnProbabilityPct.simulated}",
+                        delta: _simResult!.churnProbabilityPct.delta,
+                        isHigherBetter: false,
+                        unit: "",
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 20, color: Colors.white10),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.info_outline,
+                        color: Colors.cyanAccent,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          _simResult!.impactSummary,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                            height: 1.3,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSimulationDeltaItem({
+    required String title,
+    required String before,
+    required String after,
+    required double delta,
+    required bool isHigherBetter,
+    required String unit,
+  }) {
+    final isPositiveGood = isHigherBetter ? delta > 0 : delta < 0;
+    final deltaColor = delta == 0
+        ? Colors.white54
+        : (isPositiveGood ? const Color(0xFF34D399) : const Color(0xFFF87171));
+
+    final deltaText = delta > 0 ? "+$delta" : "$delta";
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(color: Colors.white60, fontSize: 11),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Text(
+              "$before$unit",
+              style: const TextStyle(
+                color: Colors.white38,
+                fontSize: 13,
+                decoration: TextDecoration.lineThrough,
+              ),
+            ),
+            const SizedBox(width: 6),
+            const Icon(
+              Icons.arrow_forward_rounded,
+              size: 14,
+              color: Colors.white38,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              "$after$unit",
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: deltaColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                deltaText,
+                style: TextStyle(
+                  color: deltaColor,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 

@@ -64,4 +64,35 @@ class ApiService {
       throw Exception('Tavsiye servisi hatası: $e');
     }
   }
+
+  /// Gün 13: What-If Churn Simülasyonu
+  static Future<SimulationResult> simulateCustomer({
+    required int customerId,
+    required int daysToNextOrder,
+    required int additionalOrders,
+    required double additionalSpend,
+  }) async {
+    final url = Uri.parse('$baseUrl/api/v1/customer/$customerId/simulate');
+
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'days_to_next_order': daysToNextOrder,
+        'additional_orders': additionalOrders,
+        'additional_spend': additionalSpend,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = jsonDecode(
+        utf8.decode(response.bodyBytes),
+      );
+      return SimulationResult.fromJson(data);
+    } else {
+      throw Exception(
+        'Simülasyon motoru hatası (${response.statusCode}): ${response.body}',
+      );
+    }
+  }
 }

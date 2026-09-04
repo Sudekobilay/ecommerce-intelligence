@@ -1,32 +1,103 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'models/auth_models.dart';
+import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/customer_analytics_screen.dart';
 
+final ValueNotifier<ThemeMode> appThemeMode = ValueNotifier(ThemeMode.light);
+
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+    ),
+  );
   runApp(const EcommerceIntelligenceApp());
 }
 
-class EcommerceIntelligenceApp extends StatelessWidget {
+class EcommerceIntelligenceApp extends StatefulWidget {
   const EcommerceIntelligenceApp({super.key});
 
   @override
+  State<EcommerceIntelligenceApp> createState() =>
+      _EcommerceIntelligenceAppState();
+}
+
+class _EcommerceIntelligenceAppState extends State<EcommerceIntelligenceApp> {
+  UserSession? _currentSession;
+
+  @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'E-Commerce Intelligence',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF0F172A),
-        fontFamily: 'Segoe UI',
-        useMaterial3: true,
-      ),
-      home: const MainNavigationScreen(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: appThemeMode,
+      builder: (context, currentMode, _) {
+        return MaterialApp(
+          title: 'Pulse BI',
+          debugShowCheckedModeBanner: false,
+          themeMode: currentMode,
+          theme: ThemeData(
+            useMaterial3: true,
+            brightness: Brightness.light,
+            scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+            cardColor: Colors.white,
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF2563EB),
+              surface: Colors.white,
+              onSurface: Color(0xFF0F172A),
+              outline: Color(0xFFE2E8F0),
+            ),
+            dividerColor: const Color(0xFFE2E8F0),
+            fontFamily: 'Segoe UI',
+          ),
+          darkTheme: ThemeData(
+            useMaterial3: true,
+            brightness: Brightness.dark,
+            scaffoldBackgroundColor: const Color(0xFF0F172A),
+            cardColor: const Color(0xFF1E293B),
+            colorScheme: const ColorScheme.dark(
+              primary: Color(0xFF3B82F6),
+              surface: Color(0xFF1E293B),
+              onSurface: Color(0xFFF8FAFC),
+              outline: Color(0xFF334155),
+            ),
+            dividerColor: const Color(0xFF334155),
+            fontFamily: 'Segoe UI',
+          ),
+          home: _currentSession == null
+              ? LoginScreen(
+                  onLoginSuccess: (session) {
+                    setState(() {
+                      _currentSession = session;
+                    });
+                  },
+                )
+              : MainNavigationScreen(
+                  session: _currentSession!,
+                  onLogout: () {
+                    setState(() {
+                      _currentSession = null;
+                    });
+                  },
+                ),
+        );
+      },
     );
   }
 }
 
 class MainNavigationScreen extends StatefulWidget {
-  const MainNavigationScreen({super.key});
+  final UserSession session;
+  final VoidCallback onLogout;
+
+  const MainNavigationScreen({
+    super.key,
+    required this.session,
+    required this.onLogout,
+  });
 
   @override
   State<MainNavigationScreen> createState() => _MainNavigationScreenState();
@@ -35,33 +106,133 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
 
-  // const anahtar kelimesi kaldırıldı
-  final List<Widget> _screens = [
-    const DashboardScreen(),
-    const CustomerAnalyticsScreen(),
-  ];
+  void _triggerHaptic(void Function() action) {
+    if (!kIsWeb) {
+      try {
+        action();
+      } catch (_) {}
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isExecutive = widget.session.role == UserRole.executive;
+
+    final List<Widget> accessibleScreens = [
+      if (isExecutive) DashboardScreen(onLogout: widget.onLogout),
+      CustomerAnalyticsScreen(onLogout: widget.onLogout),
+    ];
+
+    // Eğer tek ekran erişilebilirsa (Pazarlama Uzmanı), alt menü kuralına takılmamak için direkt ekranı döndür
+    if (!isExecutive) {
+      return Scaffold(body: accessibleScreens[0]);
+    }
+
+    final List<NavigationDestination> destinations = const [
+      NavigationDestination(
+        icon: Icon(Icons.analytics_outlined),
+        selectedIcon: Icon(Icons.analytics_rounded, color: Color(0xFF2563EB)),
+        label: 'Cockpit BI',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.person_search_outlined),
+        selectedIcon: Icon(
+          Icons.person_search_rounded,
+          color: Color(0xFF2563EB),
+        ),
+        label: 'Müşteri 360°',
+      ),
+    ];
+
     return Scaffold(
-      body: _screens[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        backgroundColor: const Color(0xFF1E293B),
-        selectedItemColor: Colors.cyanAccent,
-        unselectedItemColor: Colors.white54,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard_rounded),
-            label: 'Executive BI',
+      body: IndexedStack(
+        index: _currentIndex < accessibleScreens.length ? _currentIndex : 0,
+        children: accessibleScreens,
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+          border: Border(
+            top: BorderSide(
+              color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+              width: 1,
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_search_rounded),
-            label: 'Müşteri & Sepet',
+        ),
+        child: SafeArea(
+          child: NavigationBar(
+            selectedIndex: _currentIndex < accessibleScreens.length
+                ? _currentIndex
+                : 0,
+            onDestinationSelected: (idx) {
+              _triggerHaptic(HapticFeedback.selectionClick);
+              setState(() {
+                _currentIndex = idx;
+              });
+            },
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            height: 62,
+            indicatorColor: isDark
+                ? const Color(0xFF3B82F6).withValues(alpha: 0.2)
+                : const Color(0xFF2563EB).withValues(alpha: 0.1),
+            destinations: destinations,
           ),
-        ],
+        ),
       ),
     );
   }
+}
+
+class BrandPulseLogo extends StatelessWidget {
+  final double size;
+  const BrandPulseLogo({super.key, this.size = 28});
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(size: Size(size, size), painter: _BrandLogoPainter());
+  }
+}
+
+class _BrandLogoPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final rrect = RRect.fromRectAndRadius(
+      rect,
+      Radius.circular(size.width * 0.28),
+    );
+
+    final bgPaint = Paint()
+      ..shader = const LinearGradient(
+        colors: [Color(0xFF2563EB), Color(0xFF4F46E5)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ).createShader(rect);
+    canvas.drawRRect(rrect, bgPaint);
+
+    final barPaint = Paint()
+      ..color = Colors.white
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * 0.1;
+
+    final path = Path()
+      ..moveTo(size.width * 0.24, size.height * 0.65)
+      ..lineTo(size.width * 0.44, size.height * 0.40)
+      ..lineTo(size.width * 0.60, size.height * 0.55)
+      ..lineTo(size.width * 0.78, size.height * 0.28);
+    canvas.drawPath(path, barPaint);
+
+    final dotPaint = Paint()..color = const Color(0xFF38BDF8);
+    canvas.drawCircle(
+      Offset(size.width * 0.78, size.height * 0.28),
+      size.width * 0.08,
+      dotPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

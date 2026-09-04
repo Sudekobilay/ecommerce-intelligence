@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../models/intelligence_models.dart';
 import '../utils/formatters.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -11,6 +12,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   late Future<Map<String, dynamic>> _analyticsFuture;
+  late Future<CohortMatrixData> _cohortFuture;
 
   @override
   void initState() {
@@ -20,6 +22,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _loadData() {
     _analyticsFuture = ApiService.getOverviewAnalytics();
+    _cohortFuture = ApiService.fetchCohortMatrix();
   }
 
   Color _getSegmentColor(String segment) {
@@ -36,6 +39,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return const Color(0xFF64748B);
     }
     return const Color(0xFF8B5CF6);
+  }
+
+  Color _getCohortCellColor(double rate) {
+    if (rate >= 100.0) return const Color(0xFF0284C7);
+    if (rate >= 35.0) return const Color(0xFF0D9488);
+    if (rate >= 25.0) return const Color(0xFF059669);
+    if (rate >= 20.0) return const Color(0xFFD97706);
+    return const Color(0xFFDC2626);
   }
 
   @override
@@ -201,14 +212,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 24),
                 ],
 
-                const Text(
-                  'MÜŞTERİ SEGMENTLERİ VE DAĞILIM ORANLARI',
-                  style: TextStyle(
-                    color: Colors.white54,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.1,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: const [
+                    Text(
+                      'MÜŞTERİ SEGMENTLERİ & HEDEF KİTLE AKTARIMI',
+                      style: TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                    Text(
+                      'Meta / Klaviyo',
+                      style: TextStyle(color: Colors.cyanAccent, fontSize: 11),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 10),
                 Container(
@@ -224,6 +244,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         .toList(),
                   ),
                 ),
+                const SizedBox(height: 24),
+
+                // --- GÜN 14: KOHORT RETENTION ISI HARİTASI ---
+                const Row(
+                  children: [
+                    Icon(
+                      Icons.grid_on_rounded,
+                      color: Colors.cyanAccent,
+                      size: 18,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'MÜŞTERİ YAŞAM DÖNGÜSÜ & KOHORT ISI HARİTASI',
+                      style: TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                _buildCohortSection(),
+                const SizedBox(height: 20),
               ],
             ),
           );
@@ -332,10 +377,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildSegmentRow(dynamic seg) {
-    final name = seg['segment'].toString().replaceAll('_', ' ').toUpperCase();
+    final rawName = seg['segment'].toString();
+    final displayName = rawName.replaceAll('_', ' ').toUpperCase();
     final count = seg['count'] ?? 0;
     final pct = (seg['percentage'] as num?)?.toDouble() ?? 0.0;
-    final color = _getSegmentColor(name);
+    final color = _getSegmentColor(displayName);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -356,7 +402,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    name,
+                    displayName,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 12,
@@ -365,9 +411,61 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ],
               ),
-              Text(
-                '$count müşteri (%$pct)',
-                style: const TextStyle(color: Colors.white60, fontSize: 11),
+              Row(
+                children: [
+                  Text(
+                    '$count müşteri (%$pct)',
+                    style: const TextStyle(color: Colors.white60, fontSize: 11),
+                  ),
+                  const SizedBox(width: 8),
+                  InkWell(
+                    onTap: () {
+                      ApiService.exportSegmentCsv(rawName);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          backgroundColor: const Color(0xFF1E293B),
+                          content: Text(
+                            '$displayName hedef kitlesi CSV olarak dışa aktarılıyor...',
+                            style: const TextStyle(color: Colors.cyanAccent),
+                          ),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.cyanAccent.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: Colors.cyanAccent.withValues(alpha: 0.4),
+                        ),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(
+                            Icons.download_rounded,
+                            size: 12,
+                            color: Colors.cyanAccent,
+                          ),
+                          SizedBox(width: 3),
+                          Text(
+                            "CSV",
+                            style: TextStyle(
+                              color: Colors.cyanAccent,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -383,6 +481,167 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCohortSection() {
+    return FutureBuilder<CohortMatrixData>(
+      future: _cohortFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            height: 140,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E293B),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Center(
+              child: CircularProgressIndicator(color: Colors.cyanAccent),
+            ),
+          );
+        }
+
+        if (snapshot.hasError || !snapshot.hasData) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E293B),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Text(
+              "Kohort verisi yüklenemedi.",
+              style: TextStyle(color: Colors.white60, fontSize: 12),
+            ),
+          );
+        }
+
+        final matrix = snapshot.data!;
+
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E293B),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white10),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Aylık Kohort Tutma Oranı (Retention Heatmap)",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                "Her satır bir edinim kohortunu, sütunlar takip eden aylardaki platforma dönüş oranını (%) gösterir.",
+                style: TextStyle(color: Colors.white54, fontSize: 11),
+              ),
+              const SizedBox(height: 12),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: DataTable(
+                  horizontalMargin: 8,
+                  columnSpacing: 10,
+                  headingRowHeight: 32,
+                  dataRowMinHeight: 28,
+                  dataRowMaxHeight: 28,
+                  columns: [
+                    const DataColumn(
+                      label: Text(
+                        "Kohort",
+                        style: TextStyle(
+                          color: Colors.cyanAccent,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const DataColumn(
+                      label: Text(
+                        "Kullanıcı",
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    ...matrix.periods
+                        .take(6)
+                        .map(
+                          (p) => DataColumn(
+                            label: Text(
+                              p,
+                              style: const TextStyle(
+                                color: Colors.white60,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                  ],
+                  rows: matrix.cohorts.take(6).map((c) {
+                    return DataRow(
+                      cells: [
+                        DataCell(
+                          Text(
+                            c.cohortMonth,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            "${c.totalCustomers}",
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                        ...c.retentionRates.take(6).map((rate) {
+                          final cellColor = _getCohortCellColor(rate);
+                          return DataCell(
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: cellColor.withValues(alpha: 0.25),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: cellColor.withValues(alpha: 0.6),
+                                ),
+                              ),
+                              child: Text(
+                                "%${rate.toInt()}",
+                                style: TextStyle(
+                                  color: cellColor,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

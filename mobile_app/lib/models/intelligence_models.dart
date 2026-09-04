@@ -171,3 +171,44 @@ class SimulationResult {
     );
   }
 }
+
+// --- GÜN 14: KOHORT ANALİTİĞİ MODELLERİ ---
+class CohortRow {
+  final String cohortMonth;
+  final int totalCustomers;
+  final List<double> retentionRates;
+
+  CohortRow({
+    required this.cohortMonth,
+    required this.totalCustomers,
+    required this.retentionRates,
+  });
+
+  factory CohortRow.fromJson(Map<String, dynamic> json) {
+    return CohortRow(
+      cohortMonth: json['cohort_month'] as String? ?? '',
+      totalCustomers: json['total_customers'] as int? ?? 0,
+      retentionRates: (json['retention_rates'] as List<dynamic>? ?? [])
+          .map((e) => (e as num).toDouble())
+          .toList(),
+    );
+  }
+}
+
+class CohortMatrixData {
+  final List<String> periods;
+  final List<CohortRow> cohorts;
+
+  CohortMatrixData({required this.periods, required this.cohorts});
+
+  factory CohortMatrixData.fromJson(Map<String, dynamic> json) {
+    return CohortMatrixData(
+      periods: (json['periods'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())
+          .toList(),
+      cohorts: (json['cohorts'] as List<dynamic>? ?? [])
+          .map((e) => CohortRow.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
